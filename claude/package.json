@@ -1,0 +1,14 @@
+{
+  "name": "claude-projects",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "quzhou-travel"
+  ],
+  "scripts": {
+    "dev": "cd quzhou-travel && npm run dev",
+    "build": "cd quzhou-travel && npm run build",
+    "start": "cd quzhou-travel && npm run start",
+    "lint": "cd quzhou-travel && npm run lint"
+  }
+}
