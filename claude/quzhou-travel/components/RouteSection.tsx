@@ -1,5 +1,5 @@
 'use client'
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { callSiliconFlow, getConfig } from '@/lib/config'
 
@@ -74,10 +74,18 @@ export default function RouteSection() {
   // 地图全屏
   const [mapFullscreen, setMapFullscreen] = useState(false)
 
-  // 地图容器引用
-  const iframeContainerRef = useRef<HTMLDivElement>(null)
-
   const route = routes[active]
+
+  useEffect(() => {
+    if (!mapFullscreen) return
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [mapFullscreen])
 
 
   // ===== 进入编辑 =====
@@ -434,9 +442,8 @@ tag 只能从以下选择：历史文化、世界遗产、特色美食、徒步�
               </motion.button>
             </div>
 
-            {/* 地图容器 — iframe 永远在这里，全屏时通过 CSS fixed 撑满视口 */}
+            {/* 地图容器 */}
             <div
-              ref={iframeContainerRef}
               style={{ position: 'relative', height: '400px', background: 'var(--paper-warm)', overflow: 'hidden' }}
             >
               <iframe
@@ -444,23 +451,12 @@ tag 只能从以下选择：历史文化、世界遗产、特色美食、徒步�
                 src={`https://m.amap.com/search/?query=${encodeURIComponent(route.mapKeyword)}&city=330800&zoom=10`}
                 style={{
                   border: 'none',
-                  ...(mapFullscreen ? {
-                    position: 'fixed' as const,
-                    top: '56px',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    width: 'min(940px, 96vw)',
-                    height: 'calc(85vh - 56px)',
-                    zIndex: 1002,
-                    filter: 'none',
-                  } : {
-                    position: 'absolute' as const,
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    filter: 'sepia(8%) saturate(90%)',
-                  }),
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  filter: 'sepia(8%) saturate(90%)',
                 }}
                 title="高德地图"
                 sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals allow-top-navigation"
@@ -475,14 +471,10 @@ tag 只能从以下选择：历史文化、世界遗产、特色美食、徒步�
         </div>
       </div>
 
-      {/* ===== 全屏地图覆盖层 =====
-        方案：背景遮罩 + 固定顶部工具栏，iframe 通过 position:fixed CSS 撑满，
-        完全不碰 DOM，不触发 insertBefore，彻底避免 React Strict Mode 崩溃。
-      ===== */}
+      {/* ===== 大屏地图覆盖层 ===== */}
       <AnimatePresence>
         {mapFullscreen && (
           <>
-            {/* 背景遮罩 */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -494,46 +486,71 @@ tag 只能从以下选择：历史文化、世界遗产、特色美食、徒步�
                 backdropFilter: 'blur(6px)',
               }}
             />
-            {/* 顶部工具栏 — 浮在 iframe 上方 */}
             <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
+              initial={{ opacity: 0, y: 16, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 16, scale: 0.98 }}
               style={{
                 position: 'fixed',
                 top: '50%',
                 left: '50%',
-                transform: 'translate(-50%, -43vh)',
-                width: 'min(940px, 96vw)',
+                transform: 'translate(-50%, -50%)',
+                width: 'min(1280px, calc(100vw - 32px))',
+                height: 'min(88vh, 900px)',
                 zIndex: 1003,
                 background: 'rgba(245,242,235,0.97)',
                 backdropFilter: 'blur(12px)',
-                borderRadius: '14px 14px 0 0',
-                borderBottom: '1px solid var(--paper-deep)',
-                padding: '12px 18px',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                boxShadow: '0 -4px 24px rgba(28,28,26,0.08)',
+                border: '1px solid rgba(255,255,255,0.7)',
+                borderRadius: '18px',
+                boxShadow: '0 20px 60px rgba(28,28,26,0.22)',
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: route.color }} />
-                <span style={{ fontFamily: 'Noto Serif SC, serif', fontSize: '14px', letterSpacing: '2px', color: 'var(--ink)' }}>
-                  {route.label}路线 · 衢州
-                </span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '3px 10px', background: 'rgba(74,110,82,0.08)', borderRadius: '20px', marginLeft: '8px' }}>
-                  <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'var(--moss-light)', display: 'inline-block', animation: 'pulse 2s infinite' }} />
-                  <span style={{ fontSize: '11px', color: 'var(--moss)', letterSpacing: '1px' }}>可登录高德账号</span>
+              <div style={{
+                padding: '14px 18px',
+                borderBottom: '1px solid var(--paper-deep)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px',
+                flexWrap: 'wrap',
+                flexShrink: 0,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: route.color }} />
+                  <span style={{ fontFamily: 'Noto Serif SC, serif', fontSize: '14px', letterSpacing: '2px', color: 'var(--ink)' }}>
+                    {route.label}路线 · 衢州
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '3px 10px', background: 'rgba(74,110,82,0.08)', borderRadius: '20px' }}>
+                    <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'var(--moss-light)', display: 'inline-block', animation: 'pulse 2s infinite' }} />
+                    <span style={{ fontSize: '11px', color: 'var(--moss)', letterSpacing: '1px' }}>大屏查看</span>
+                  </div>
                 </div>
+                <button
+                  onClick={() => setMapFullscreen(false)}
+                  style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'rgba(255,255,255,0.8)', border: '1px solid var(--paper-deep)', cursor: 'pointer', fontSize: '15px', color: 'var(--ink-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                >
+                  ×
+                </button>
               </div>
-              <button
-                onClick={() => setMapFullscreen(false)}
-                style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(255,255,255,0.8)', border: '1px solid var(--paper-deep)', cursor: 'pointer', fontSize: '15px', color: 'var(--ink-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              >
-                ×
-              </button>
+              <div style={{ position: 'relative', flex: 1, minHeight: 0, background: 'var(--paper-warm)' }}>
+                <iframe
+                  src={`https://m.amap.com/search/?query=${encodeURIComponent(route.mapKeyword)}&city=330800&zoom=10`}
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    width: '100%',
+                    height: '100%',
+                    border: 'none',
+                    filter: 'none',
+                  }}
+                  title="高德地图"
+                  sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals allow-top-navigation"
+                />
+              </div>
             </motion.div>
-            {/* iframe 圆角底部装饰条 */}
-            <div style={{ position: 'fixed', bottom: '50%', left: '50%', transform: 'translate(-50%, 42.5vh)', width: 'min(940px, 96vw)', height: '14px', background: 'rgba(245,242,235,0.97)', borderRadius: '0 0 14px 14px', zIndex: 1003 }} />
           </>
         )}
       </AnimatePresence>
@@ -608,4 +625,3 @@ tag 只能从以下选择：历史文化、世界遗产、特色美食、徒步�
     </section>
   )
 }
-

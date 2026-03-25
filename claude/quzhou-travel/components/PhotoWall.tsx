@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 interface Photo {
   id: string
   src: string
+  templateSrc?: string
   name: string
   lat: string
   lng: string
@@ -53,6 +54,9 @@ const DEMO_PHOTOS: Photo[] = [
   },
 ]
 
+// 给用户上传内容“叠加”的固定模版背景（保持框架不变，只替换内容图片）
+const FIXED_TEMPLATE_SRC = DEMO_PHOTOS.find(p => p.name === '钱江源')?.src || DEMO_PHOTOS[2].src
+
 export default function PhotoWall() {
   const [photos, setPhotos] = useState<Photo[]>(DEMO_PHOTOS)
   const [dragOver, setDragOver] = useState(false)
@@ -64,6 +68,7 @@ export default function PhotoWall() {
   const [currentName, setCurrentName] = useState('')
   const [currentSpot, setCurrentSpot] = useState(SPOT_DATA[0])
   const fileRef = useRef<HTMLInputElement>(null)
+  const denseMode = photos.length >= 20
 
   const handleFiles = useCallback((files: File[]) => {
     const imageFiles = files.filter(f => f.type.startsWith('image/'))
@@ -90,18 +95,23 @@ export default function PhotoWall() {
     handleFiles(Array.from(e.dataTransfer.files))
   }
 
-  const confirmName = () => {
+  const confirmName = useCallback(() => {
+    if (!pendingFiles[namingIndex]) return
+    
     const pending = pendingFiles[namingIndex]
     const newPhoto: Photo = {
-      id: Date.now().toString() + namingIndex,
+      id: Date.now().toString() + Math.random(),
       src: pending.preview,
+      templateSrc: FIXED_TEMPLATE_SRC,
       name: currentName || currentSpot.name,
       lat: currentSpot.lat,
       lng: currentSpot.lng,
       weather: currentSpot.weather,
       rotation: (Math.random() - 0.5) * 6,
+      isDemo: false,
     }
-    setPhotos(prev => [newPhoto, ...prev])
+    
+    setPhotos(prev => [newPhoto, ...prev].slice(0, 20))
 
     if (namingIndex < pendingFiles.length - 1) {
       const next = namingIndex + 1
@@ -114,7 +124,7 @@ export default function PhotoWall() {
       setPendingFiles([])
       setNamingIndex(0)
     }
-  }
+  }, [pendingFiles, namingIndex, currentSpot, currentName])
 
   const removePhoto = (id: string) => setPhotos(prev => prev.filter(p => p.id !== id))
 
@@ -189,11 +199,18 @@ export default function PhotoWall() {
           initial="hidden"
           whileInView="show"
           viewport={{ once: true, margin: '-50px' }}
-          style={{ columns: '3 260px', columnGap: '16px' }}
+          style={{ columns: denseMode ? '3 220px' : '3 260px', columnGap: denseMode ? '12px' : '16px' }}
         >
           {photos.map((photo) => (
-            <motion.div key={photo.id} variants={cardVariants} style={{ breakInside: 'avoid', marginBottom: '16px', display: 'inline-block', width: '100%' }}>
-              <PolaroidCard photo={photo} onRemove={removePhoto} onReplace={replacePhoto} onOpen={setLightbox} onComment={setCommentPhoto} />
+            <motion.div key={photo.id} variants={cardVariants} style={{ breakInside: 'avoid', marginBottom: denseMode ? '12px' : '16px', display: 'inline-block', width: '100%' }}>
+              <PolaroidCard
+                dense={denseMode}
+                photo={photo}
+                onRemove={removePhoto}
+                onReplace={replacePhoto}
+                onOpen={setLightbox}
+                onComment={setCommentPhoto}
+              />
             </motion.div>
           ))}
         </motion.div>
@@ -402,14 +419,19 @@ export default function PhotoWall() {
   )
 }
 
-function PolaroidCard({ photo, onRemove, onReplace, onOpen, onComment }: {
+function PolaroidCard({ photo, onRemove, onReplace, onOpen, onComment, dense }: {
   photo: Photo
   onRemove: (id: string) => void
   onReplace: (id: string, src: string) => void
   onOpen: (p: Photo) => void
   onComment: (p: Photo) => void
+  dense: boolean
 }) {
   const replaceInputRef = useRef<HTMLInputElement>(null)
+  // Demo 图片本身是“定制模版”的数据图；用户上传/替换后的普通图片需要额外包一层“内框”
+  // 才能呈现同样的拍立得留白效果（只加一层，避免多层导致效果看不清）。
+  const matPadding = photo.isDemo ? 0 : 12
+  const matRadius = 4
 
   const handleReplaceFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -431,7 +453,7 @@ function PolaroidCard({ photo, onRemove, onReplace, onOpen, onComment }: {
       transition={{ duration: 0.3, ease: 'easeOut' }}
       style={{
         background: '#fefefe',
-        padding: '10px 10px 34px',
+        padding: dense ? '6px' : '8px',
         boxShadow: hovered ? '0 20px 48px rgba(28,28,26,0.16)' : '0 3px 16px rgba(28,28,26,0.09)',
         cursor: 'pointer',
         position: 'relative',
@@ -440,42 +462,85 @@ function PolaroidCard({ photo, onRemove, onReplace, onOpen, onComment }: {
       onClick={() => onOpen(photo)}
     >
       {/* 照片 */}
-      <div style={{ position: 'relative', overflow: 'hidden', background: 'var(--paper-warm)' }}>
-        <motion.img
-          src={photo.src}
-          alt={photo.name}
-          animate={{ scale: hovered ? 1.04 : 1 }}
-          transition={{ duration: 0.4 }}
-          style={{
-            width: '100%', display: 'block',
-            aspectRatio: '4/3', objectFit: 'cover',
-            filter: 'sepia(8%) saturate(85%) brightness(1.02)',
-          }}
-        />
-        {/* 悬停信息 */}
-        <motion.div
-          animate={{ opacity: hovered ? 1 : 0 }}
-          style={{
-            position: 'absolute', inset: 0,
-            background: 'linear-gradient(to top, rgba(28,28,26,0.62) 0%, transparent 55%)',
-            display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
-            padding: '12px',
-          }}
-        >
-          <div style={{ color: 'rgba(255,255,255,0.92)', fontSize: '10px', letterSpacing: '1.5px', marginBottom: '2px' }}>
-            📍 {photo.lat}
-          </div>
-          <div style={{ color: 'rgba(255,255,255,0.92)', fontSize: '10px', letterSpacing: '1.5px', marginBottom: '3px' }}>
-            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{photo.lng}
-          </div>
-          <div style={{ color: 'rgba(255,255,255,0.88)', fontSize: '12px' }}>
-            {photo.weather} 天气记录
-          </div>
-        </motion.div>
+      <div
+        style={{
+          position: 'relative',
+          overflow: 'hidden',
+          background: 'var(--paper-warm)',
+          padding: `${matPadding}px`,
+          borderRadius: `${matRadius}px`,
+          border: dense ? '1px solid rgba(74,110,82,0.35)' : '1.5px solid rgba(74,110,82,0.35)',
+          boxShadow: matPadding ? 'inset 0 0 0 1px rgba(74,110,82,0.10)' : undefined,
+          boxSizing: 'border-box',
+        }}
+      >
+        <div style={{ position: 'relative', overflow: 'hidden', borderRadius: `${matRadius}px` }}>
+          <motion.img
+            src={photo.src}
+            alt={photo.name}
+            animate={{ scale: hovered ? 1.04 : 1 }}
+            transition={{ duration: 0.4 }}
+            style={{
+              width: '100%',
+              display: 'block',
+              aspectRatio: '4/3',
+              objectFit: 'cover',
+              position: 'relative',
+              zIndex: 2,
+              filter: 'sepia(8%) saturate(85%) brightness(1.02)',
+            }}
+          />
+          {/* 固定模版叠加层：让上传/替换图片也呈现同样“背景风格” */}
+          {photo.templateSrc && (
+            <motion.img
+              src={photo.templateSrc}
+              alt=""
+              aria-hidden="true"
+              animate={{ scale: hovered ? 1.04 : 1 }}
+              transition={{ duration: 0.4 }}
+              style={{
+                position: 'absolute',
+                inset: 0,
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                opacity: 0.28,
+                mixBlendMode: 'multiply',
+                filter: 'sepia(2%) saturate(110%)',
+                pointerEvents: 'none',
+                zIndex: 1,
+              }}
+            />
+          )}
+          {/* 悬停信息 */}
+          <motion.div
+            animate={{ opacity: hovered ? 1 : 0 }}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'linear-gradient(to top, rgba(28,28,26,0.62) 0%, transparent 55%)',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'flex-end',
+              padding: '12px',
+              zIndex: 3,
+            }}
+          >
+            <div style={{ color: 'rgba(255,255,255,0.92)', fontSize: '10px', letterSpacing: '1.5px', marginBottom: '2px' }}>
+              📍 {photo.lat}
+            </div>
+            <div style={{ color: 'rgba(255,255,255,0.92)', fontSize: '10px', letterSpacing: '1.5px', marginBottom: '3px' }}>
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{photo.lng}
+            </div>
+            <div style={{ color: 'rgba(255,255,255,0.88)', fontSize: '12px' }}>
+              {photo.weather} 天气记录
+            </div>
+          </motion.div>
+        </div>
       </div>
 
       {/* 拍立得底部名称 */}
-      <div style={{ textAlign: 'center', marginTop: '10px', padding: '0 4px' }}>
+      <div style={{ textAlign: 'center', marginTop: '8px', padding: '0 4px', paddingBottom: '4px' }}>
         <div style={{ fontFamily: 'Noto Serif SC, serif', fontSize: '12px', color: '#555', letterSpacing: '3px' }}>
           {photo.name}
         </div>

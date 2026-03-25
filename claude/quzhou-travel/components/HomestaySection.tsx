@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { callXhsMcp } from '@/lib/config'
+import FOOD_DEMO_NOTES_JSON from '@/data/foodPosts.json'
 
 // 从任意 MCP 返回的笔记对象中提取小红书跳转链接
 function resolveXhsUrl(note: Record<string, unknown>): string {
@@ -30,20 +31,18 @@ function resolveXhsUrl(note: Record<string, unknown>): string {
   return ''
 }
 
-// 从笔记对象提取显示字段（字段名因 MCP 版本而异）
+// 你导入的 JSON（美食帖子/笔记列表），用于展示“热门小红书帖子”
+const DEMO_FOOD_NOTES: Record<string, unknown>[] = (FOOD_DEMO_NOTES_JSON as Record<string, unknown>[]) ?? []
 
-const DEMO_NOTES: Record<string, unknown>[] = [
-  { title: '江郎山下·云隐精品民宿', desc: '推开窗就是江郎山，清晨薄雾漫山，夜晚星河璀璨。原木+石材设计，搭配衢州传统竹编摆件。强烈推荐清明前后来，院子里的樱花正好。', cover: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500&q=70', liked_count: 2341, location: '江山市', price: '￥380起' },
-  { title: '廿八都·烟雨人家', desc: '古镇核心区，清代老宅改造。进门是天井，满眼青苔石板。老板讲古镇故事，早餐有自制青团，住一晚胜过很多五星酒店的感觉。', cover: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=500&q=70', liked_count: 1876, location: '廿八都古镇', price: '￥298起' },
-  { title: '钱江源·林间隐居', desc: '开化县深山，只有6间房。周围原始森林，清明时节新绿初发，空气里都是植物清香。有户外火堆，夜里围坐聊天，是都市人最需要的放空。', cover: 'https://images.unsplash.com/photo-1510798831971-661eb04b3739?w=500&q=70', liked_count: 3102, location: '开化县', price: '￥520起' },
-  { title: '衢州古城·孔裔书房', desc: '南孔庙旁，由民国书局改造，保留老式木质书架和雕花窗棂。清晨能听到孔庙晨钟。主理人是本地文化研究者，会分享很多衢州冷知识。', cover: 'https://images.unsplash.com/photo-1445019980597-93fa8acb246c?w=500&q=70', liked_count: 989, location: '衢州古城', price: '￥428起' },
-  { title: '烂柯山·棋隐居', desc: '围棋仙地旁，庭院里有棋盘石桌。清明踏青完回来下几盘，配上主人泡的三清茶，时光就这样慢下来了。', cover: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=500&q=70', liked_count: 654, location: '柯城区', price: '￥260起' },
-  { title: '仙霞古道·驿站民宿', desc: '千年驿道旁，融合古驿站元素。清明徒步完古道，泡个澡吃顿热饭，幸福感爆棚。老板会接送，不用担心交通。', cover: 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=500&q=70', liked_count: 1203, location: '江山市', price: '￥320起' },
-]
+function getLikes(note: Record<string, unknown>): number {
+  const v = extractField(note, 'liked_count', 'likes', 'like_count', 'likes_count', 'interact_info')
+  const n = Number(v)
+  return Number.isFinite(n) ? n : 0
+}
 
 export default function HomestaySection() {
-  const [query, setQuery] = useState('衢州 清明 民宿')
-  const [notes, setNotes] = useState<Record<string, unknown>[]>(DEMO_NOTES)
+  const [query, setQuery] = useState('衢州 清明 美食')
+  const [notes, setNotes] = useState<Record<string, unknown>[]>(DEMO_FOOD_NOTES)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searched, setSearched] = useState(false)
@@ -63,14 +62,18 @@ export default function HomestaySection() {
       setToolName(result.toolName)
       setRawResponse(result.rawResponse)
       if (result.notes.length > 0) {
-        setNotes(result.notes)
+        // 按“点赞/热度”从高到低展示
+        const sorted = [...result.notes].sort((a: unknown, b: unknown) => {
+          return getLikes(b as Record<string, unknown>) - getLikes(a as Record<string, unknown>)
+        })
+        setNotes(sorted as Record<string, unknown>[])
       } else {
-        setNotes(DEMO_NOTES)
-        setError('MCP 返回数据为空，展示示例数据。点「调试」查看原始响应。')
+        setNotes(DEMO_FOOD_NOTES)
+        setError('MCP 返回数据为空，展示导入的美食示例数据。点「调试」查看原始响应。')
       }
     } catch (e: unknown) {
       setError((e as Error).message || '连接失败')
-      setNotes(DEMO_NOTES)
+      setNotes(DEMO_FOOD_NOTES)
     } finally {
       setLoading(false)
     }
@@ -85,18 +88,18 @@ export default function HomestaySection() {
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '16px', marginBottom: '8px' }}>
             <span className="font-calligraphy" style={{ fontSize: '52px', color: 'var(--paper-deep)', lineHeight: 1 }}>三</span>
             <div>
-              <div style={{ fontSize: '11px', letterSpacing: '4px', color: 'var(--moss-light)', textTransform: 'uppercase', marginBottom: '4px' }}>Homestay · XHS MCP</div>
-              <h2 style={{ fontSize: '28px', fontWeight: 600, letterSpacing: '3px' }}>民宿推荐</h2>
+              <div style={{ fontSize: '11px', letterSpacing: '4px', color: 'var(--moss-light)', textTransform: 'uppercase', marginBottom: '4px' }}>Food · XHS MCP</div>
+              <h2 style={{ fontSize: '28px', fontWeight: 600, letterSpacing: '3px' }}>美食推荐</h2>
             </div>
           </div>
-          <p style={{ fontSize: '13px', color: 'var(--ink-muted)', letterSpacing: '1px', paddingLeft: '68px' }}>实时抓取小红书热门民宿笔记，发现最真实的住宿体验</p>
+          <p style={{ fontSize: '13px', color: 'var(--ink-muted)', letterSpacing: '1px', paddingLeft: '68px' }}>实时抓取小红书热门美食帖子，看看大家都在吃什么</p>
         </motion.div>
 
         {/* 搜索栏 */}
         <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
           style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
           <input value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && search()}
-            placeholder="搜索民宿关键词，如：江郎山民宿…"
+            placeholder="搜索美食关键词，如：衢州烤饼…"
             style={{ flex: 1, padding: '12px 18px', background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(8px)', border: '1px solid var(--paper-deep)', borderRadius: '6px', fontFamily: 'Noto Sans SC, sans-serif', fontSize: '14px', color: 'var(--ink)', outline: 'none', transition: 'border-color 0.25s' }} />
           <motion.button whileHover={{ scale: 1.02, y: -1 }} whileTap={{ scale: 0.98 }} onClick={search} disabled={loading}
             style={{ padding: '12px 28px', background: loading ? 'var(--ink-muted)' : 'var(--moss)', color: 'var(--paper)', border: 'none', borderRadius: '6px', fontFamily: 'Noto Serif SC, serif', fontSize: '14px', letterSpacing: '3px', cursor: loading ? 'not-allowed' : 'pointer', boxShadow: '0 2px 12px rgba(74,110,82,0.25)', whiteSpace: 'nowrap' }}>
@@ -146,7 +149,7 @@ export default function HomestaySection() {
                     style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--moss-light)' }} />
                 ))}
               </div>
-              <p style={{ fontSize: '13px', letterSpacing: '2px' }}>正在从小红书抓取民宿笔记…</p>
+              <p style={{ fontSize: '13px', letterSpacing: '2px' }}>正在从小红书抓取美食帖子…</p>
             </motion.div>
           ) : (
             <motion.div key="cards" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
@@ -204,7 +207,7 @@ function MagazineCard({ note, index }: { note: Record<string, unknown>; index: n
           <span style={{ fontSize: '11px', color: 'var(--moss)', letterSpacing: '1px' }}>📍 {location || '衢州'}</span>
           {likes && <span style={{ fontSize: '11px', color: 'var(--gold)', letterSpacing: '1px' }}>♥ {likes}</span>}
         </div>
-        <h3 style={{ fontFamily: 'Noto Serif SC, serif', fontSize: '16px', fontWeight: 600, color: 'var(--ink)', marginBottom: '10px', letterSpacing: '1px', lineHeight: 1.5 }}>{title || '衢州民宿'}</h3>
+        <h3 style={{ fontFamily: 'Noto Serif SC, serif', fontSize: '16px', fontWeight: 600, color: 'var(--ink)', marginBottom: '10px', letterSpacing: '1px', lineHeight: 1.5 }}>{title || '衢州美食'}</h3>
         <p style={{ fontSize: '13px', color: 'var(--ink-muted)', lineHeight: 1.8, letterSpacing: '0.5px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', marginBottom: '14px' }}>{desc}</p>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid var(--paper-deep)' }}>
           <span style={{ fontSize: '11px', color: 'var(--ink-muted)', letterSpacing: '1px' }}>来自小红书</span>
