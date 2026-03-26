@@ -1,6 +1,7 @@
 'use client'
 import { useState, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { createPortal } from 'react-dom'
 import { callSiliconFlow, getConfig } from '@/lib/config'
 
 interface Stop {
@@ -85,6 +86,19 @@ export default function RouteSection() {
     return () => {
       document.body.style.overflow = previousOverflow
     }
+  }, [mapFullscreen])
+
+  useEffect(() => {
+    if (!mapFullscreen) return
+
+    const onEsc = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMapFullscreen(false)
+      }
+    }
+
+    window.addEventListener('keydown', onEsc)
+    return () => window.removeEventListener('keydown', onEsc)
   }, [mapFullscreen])
 
 
@@ -471,89 +485,111 @@ tag 只能从以下选择：历史文化、世界遗产、特色美食、徒步�
         </div>
       </div>
 
-      {/* ===== 大屏地图覆盖层 ===== */}
-      <AnimatePresence>
-        {mapFullscreen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setMapFullscreen(false)}
-              style={{
-                position: 'fixed', inset: 0, zIndex: 1000,
-                background: 'rgba(28,28,26,0.55)',
-                backdropFilter: 'blur(6px)',
-              }}
-            />
-            <motion.div
-              initial={{ opacity: 0, y: 16, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 16, scale: 0.98 }}
-              style={{
-                position: 'fixed',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                width: 'min(1280px, calc(100vw - 32px))',
-                height: 'min(88vh, 900px)',
-                zIndex: 1003,
-                background: 'rgba(245,242,235,0.97)',
-                backdropFilter: 'blur(12px)',
-                border: '1px solid rgba(255,255,255,0.7)',
-                borderRadius: '18px',
-                boxShadow: '0 20px 60px rgba(28,28,26,0.22)',
-                overflow: 'hidden',
-                display: 'flex',
-                flexDirection: 'column',
-              }}
-            >
-              <div style={{
-                padding: '14px 18px',
-                borderBottom: '1px solid var(--paper-deep)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '12px',
-                flexWrap: 'wrap',
-                flexShrink: 0,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: route.color }} />
-                  <span style={{ fontFamily: 'Noto Serif SC, serif', fontSize: '14px', letterSpacing: '2px', color: 'var(--ink)' }}>
-                    {route.label}路线 · 衢州
-                  </span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '3px 10px', background: 'rgba(74,110,82,0.08)', borderRadius: '20px' }}>
-                    <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'var(--moss-light)', display: 'inline-block', animation: 'pulse 2s infinite' }} />
-                    <span style={{ fontSize: '11px', color: 'var(--moss)', letterSpacing: '1px' }}>大屏查看</span>
-                  </div>
+      {/* ===== 大屏地图覆盖层（Portal 到 body，避免被局部容器裁切） ===== */}
+      {mapFullscreen && typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setMapFullscreen(false)}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 1000,
+              background: 'rgba(28,28,26,0.55)',
+              backdropFilter: 'blur(6px)',
+            }}
+          />
+          <motion.div
+            initial={{ opacity: 0, y: 16, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 16, scale: 0.98 }}
+            style={{
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: 'min(1360px, calc(100vw - 28px))',
+              height: 'min(90vh, 940px)',
+              zIndex: 1003,
+              background: 'rgba(245,242,235,0.98)',
+              backdropFilter: 'blur(12px)',
+              border: '1px solid rgba(255,255,255,0.75)',
+              borderRadius: '18px',
+              boxShadow: '0 20px 60px rgba(28,28,26,0.22)',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <div style={{
+              padding: '14px 18px',
+              borderBottom: '1px solid var(--paper-deep)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+              flexWrap: 'wrap',
+              flexShrink: 0,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: route.color }} />
+                <span style={{ fontFamily: 'Noto Serif SC, serif', fontSize: '14px', letterSpacing: '2px', color: 'var(--ink)' }}>
+                  {route.label}路线 · 衢州
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '3px 10px', background: 'rgba(74,110,82,0.08)', borderRadius: '20px' }}>
+                  <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'var(--moss-light)', display: 'inline-block', animation: 'pulse 2s infinite' }} />
+                  <span style={{ fontSize: '11px', color: 'var(--moss)', letterSpacing: '1px' }}>按 ESC 或右下角退出</span>
                 </div>
-                <button
-                  onClick={() => setMapFullscreen(false)}
-                  style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'rgba(255,255,255,0.8)', border: '1px solid var(--paper-deep)', cursor: 'pointer', fontSize: '15px', color: 'var(--ink-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
-                >
-                  ×
-                </button>
               </div>
-              <div style={{ position: 'relative', flex: 1, minHeight: 0, background: 'var(--paper-warm)' }}>
-                <iframe
-                  src={`https://m.amap.com/search/?query=${encodeURIComponent(route.mapKeyword)}&city=330800&zoom=10`}
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    width: '100%',
-                    height: '100%',
-                    border: 'none',
-                    filter: 'none',
-                  }}
-                  title="高德地图"
-                  sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals allow-top-navigation"
-                />
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+              <button
+                onClick={() => setMapFullscreen(false)}
+                aria-label="关闭大屏地图"
+                style={{ width: '34px', height: '34px', borderRadius: '50%', background: 'rgba(255,255,255,0.95)', border: '1px solid var(--paper-deep)', cursor: 'pointer', fontSize: '17px', color: 'var(--ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+              >
+                ×
+              </button>
+            </div>
+            <div style={{ position: 'relative', flex: 1, minHeight: 0, background: 'var(--paper-warm)' }}>
+              <iframe
+                src={`https://m.amap.com/search/?query=${encodeURIComponent(route.mapKeyword)}&city=330800&zoom=10`}
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  width: '100%',
+                  height: '100%',
+                  border: 'none',
+                  filter: 'none',
+                }}
+                title="高德地图"
+                sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals allow-top-navigation"
+              />
+            </div>
+          </motion.div>
+          <motion.button
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            onClick={() => setMapFullscreen(false)}
+            style={{
+              position: 'fixed',
+              right: '22px',
+              bottom: '22px',
+              zIndex: 1004,
+              padding: '10px 14px',
+              borderRadius: '999px',
+              border: '1px solid rgba(255,255,255,0.6)',
+              background: 'rgba(28,28,26,0.85)',
+              color: '#fff',
+              letterSpacing: '1px',
+              fontSize: '12px',
+              cursor: 'pointer',
+            }}
+          >
+            退出大屏
+          </motion.button>
+        </AnimatePresence>,
+        document.body
+      )}
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}`}</style>
 
       {/* ===== 浮动编辑工具栏（编辑模式时出现） ===== */}
