@@ -487,11 +487,10 @@ tag 只能从以下选择：历史文化、世界遗产、特色美食、徒步�
 
       {/* ===== 大屏地图覆盖层（Portal 到 body，避免被局部容器裁切） ===== */}
       {mapFullscreen && typeof document !== 'undefined' && createPortal(
-        <AnimatePresence>
+        <>
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
             onClick={() => setMapFullscreen(false)}
             style={{
               position: 'fixed', inset: 0, zIndex: 1000,
@@ -499,28 +498,33 @@ tag 只能从以下选择：历史文化、世界遗产、特色美食、徒步�
               backdropFilter: 'blur(6px)',
             }}
           />
-          <motion.div
-            initial={{ opacity: 0, y: 16, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 16, scale: 0.98 }}
+          <div
             style={{
               position: 'fixed',
               top: '50%',
               left: '50%',
               transform: 'translate(-50%, -50%)',
+              zIndex: 1003,
               width: 'min(1360px, calc(100vw - 28px))',
               height: 'min(90vh, 940px)',
-              zIndex: 1003,
-              background: 'rgba(245,242,235,0.98)',
-              backdropFilter: 'blur(12px)',
-              border: '1px solid rgba(255,255,255,0.75)',
-              borderRadius: '18px',
-              boxShadow: '0 20px 60px rgba(28,28,26,0.22)',
-              overflow: 'hidden',
-              display: 'flex',
-              flexDirection: 'column',
             }}
           >
+            <motion.div
+              initial={{ opacity: 0, y: 16, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              style={{
+                width: '100%',
+                height: '100%',
+                background: 'rgba(245,242,235,0.98)',
+                backdropFilter: 'blur(12px)',
+                border: '1px solid rgba(255,255,255,0.75)',
+                borderRadius: '18px',
+                boxShadow: '0 20px 60px rgba(28,28,26,0.22)',
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
             <div style={{
               padding: '14px 18px',
               borderBottom: '1px solid var(--paper-deep)',
@@ -564,11 +568,11 @@ tag 只能从以下选择：历史文化、世界遗产、特色美食、徒步�
                 sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals allow-top-navigation"
               />
             </div>
-          </motion.div>
+            </motion.div>
+          </div>
           <motion.button
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
             onClick={() => setMapFullscreen(false)}
             style={{
               position: 'fixed',
@@ -587,7 +591,7 @@ tag 只能从以下选择：历史文化、世界遗产、特色美食、徒步�
           >
             退出大屏
           </motion.button>
-        </AnimatePresence>,
+        </>,
         document.body
       )}
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}`}</style>
