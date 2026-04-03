@@ -1,12 +1,11 @@
 'use client'
 import CommentBoard from './CommentBoard'
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 interface Photo {
   id: string
   src: string
-  templateSrc?: string
   name: string
   lat: string
   lng: string
@@ -54,9 +53,6 @@ const DEMO_PHOTOS: Photo[] = [
   },
 ]
 
-// 给用户上传内容“叠加”的固定模版背景（保持框架不变，只替换内容图片）
-const FIXED_TEMPLATE_SRC = DEMO_PHOTOS.find(p => p.name === '钱江源')?.src || DEMO_PHOTOS[2].src
-
 export default function PhotoWall() {
   const [photos, setPhotos] = useState<Photo[]>(DEMO_PHOTOS)
   const [dragOver, setDragOver] = useState(false)
@@ -102,7 +98,6 @@ export default function PhotoWall() {
     const newPhoto: Photo = {
       id: Date.now().toString() + Math.random(),
       src: pending.preview,
-      templateSrc: FIXED_TEMPLATE_SRC,
       name: currentName || currentSpot.name,
       lat: currentSpot.lat,
       lng: currentSpot.lng,
@@ -428,10 +423,13 @@ function PolaroidCard({ photo, onRemove, onReplace, onOpen, onComment, dense }: 
   dense: boolean
 }) {
   const replaceInputRef = useRef<HTMLInputElement>(null)
-  // Demo 图片本身是“定制模版”的数据图；用户上传/替换后的普通图片需要额外包一层“内框”
-  // 才能呈现同样的拍立得留白效果（只加一层，避免多层导致效果看不清）。
-  const matPadding = photo.isDemo ? 0 : 12
+  const [imgError, setImgError] = useState(false)
+  const matPadding = 0
   const matRadius = 4
+
+  useEffect(() => {
+    setImgError(false)
+  }, [photo.src])
 
   const handleReplaceFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -475,42 +473,39 @@ function PolaroidCard({ photo, onRemove, onReplace, onOpen, onComment, dense }: 
         }}
       >
         <div style={{ position: 'relative', overflow: 'hidden', borderRadius: `${matRadius}px` }}>
-          <motion.img
-            src={photo.src}
-            alt={photo.name}
-            animate={{ scale: hovered ? 1.04 : 1 }}
-            transition={{ duration: 0.4 }}
-            style={{
-              width: '100%',
-              display: 'block',
-              aspectRatio: '4/3',
-              objectFit: 'cover',
-              position: 'relative',
-              zIndex: 2,
-              filter: 'sepia(8%) saturate(85%) brightness(1.02)',
-            }}
-          />
-          {/* 固定模版叠加层：让上传/替换图片也呈现同样“背景风格” */}
-          {photo.templateSrc && (
+          {!imgError ? (
             <motion.img
-              src={photo.templateSrc}
-              alt=""
-              aria-hidden="true"
+              src={photo.src}
+              alt={photo.name}
               animate={{ scale: hovered ? 1.04 : 1 }}
               transition={{ duration: 0.4 }}
+              onError={() => setImgError(true)}
               style={{
-                position: 'absolute',
-                inset: 0,
                 width: '100%',
-                height: '100%',
+                display: 'block',
+                aspectRatio: '4/3',
                 objectFit: 'cover',
-                opacity: 0.28,
-                mixBlendMode: 'multiply',
-                filter: 'sepia(2%) saturate(110%)',
-                pointerEvents: 'none',
-                zIndex: 1,
+                position: 'relative',
+                zIndex: 2,
+                filter: 'sepia(8%) saturate(85%) brightness(1.02)',
               }}
             />
+          ) : (
+            <div
+              style={{
+                width: '100%',
+                aspectRatio: '4/3',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--ink-muted)',
+                fontSize: '12px',
+                letterSpacing: '1px',
+                background: 'rgba(255,255,255,0.55)',
+              }}
+            >
+              图片加载失败
+            </div>
           )}
           {/* 悬停信息 */}
           <motion.div
